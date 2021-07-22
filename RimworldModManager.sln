@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31515.178
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimworldModManager", "RimworldModManager\RimworldModManager.csproj", "{555BD53D-A4A0-4264-9AFF-F066A663F2AD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{555BD53D-A4A0-4264-9AFF-F066A663F2AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{555BD53D-A4A0-4264-9AFF-F066A663F2AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{555BD53D-A4A0-4264-9AFF-F066A663F2AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{555BD53D-A4A0-4264-9AFF-F066A663F2AD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {850B20AA-0BB6-40CF-91AD-EA0900D4C89E}
+	EndGlobalSection
+EndGlobal
