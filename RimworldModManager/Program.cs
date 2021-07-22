@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Xml;
 
@@ -35,6 +37,8 @@ namespace RimworldModManager
 
         static void ListMods()
         {
+            List<string> modList = new List<string>();
+            List<string> expansionList = new List<string>();
             var path = Directory.GetParent(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
                 .ToString();
             path += "\\LocalLow\\Ludeon Studios\\RimWorld by Ludeon Studios\\Config\\ModsConfig.xml";
@@ -43,13 +47,34 @@ namespace RimworldModManager
             //Console.WriteLine(path);
             var ModsConfigDataNode = modsConfigXmlDocument.SelectSingleNode("ModsConfigData");
             var activeModsNode = ModsConfigDataNode.SelectSingleNode("activeMods");
+            var knownExpansionsNode = ModsConfigDataNode.SelectSingleNode("knownExpansions");
             //Console.WriteLine(activeModsNode.OuterXml);
             foreach (XmlElement childNode in activeModsNode.ChildNodes)
             {
-                Console.WriteLine(childNode.InnerText);
+                modList.Add(childNode.InnerText);
             }
 
-            Console.WriteLine($"Total: {activeModsNode.ChildNodes.Count}");
+            foreach (XmlElement element in knownExpansionsNode)
+            {
+                expansionList.Add(element.InnerText);
+            }
+
+            Console.WriteLine("Active Mods:");
+            foreach (var modName in modList)
+            {
+                Console.WriteLine($"\u001b[32m{modName}\u001b[0m");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Known expansions:");
+            foreach (var expansionName in expansionList)
+            {
+                Console.WriteLine($"\u001b[33m{expansionName}\u001b[0m");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine($"Total: {modList.Count} " +
+                              $"Expansions: {expansionList.Count}");
         }
     }
 }
