@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Xml;
 
 namespace RimworldModManager
@@ -39,16 +40,35 @@ namespace RimworldModManager
         {
             List<string> modList = new List<string>();
             List<string> expansionList = new List<string>();
-            var path = Directory.GetParent(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
+            List<ModInfo> modInfoList = new List<ModInfo>();
+            var configPath = Directory.GetParent(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
                 .ToString();
-            path += "\\LocalLow\\Ludeon Studios\\RimWorld by Ludeon Studios\\Config\\ModsConfig.xml";
+            configPath += "\\LocalLow\\Ludeon Studios\\RimWorld by Ludeon Studios\\Config\\ModsConfig.xml";
+            var gameModDirPath = "C:\\GOG Games\\RimWorld\\Mods";
+            var modDirs=Directory.GetDirectories(gameModDirPath);
+
             XmlDocument modsConfigXmlDocument = new XmlDocument();
-            modsConfigXmlDocument.Load(path);
+            modsConfigXmlDocument.Load(configPath);
             //Console.WriteLine(path);
             var ModsConfigDataNode = modsConfigXmlDocument.SelectSingleNode("ModsConfigData");
             var activeModsNode = ModsConfigDataNode.SelectSingleNode("activeMods");
             var knownExpansionsNode = ModsConfigDataNode.SelectSingleNode("knownExpansions");
             //Console.WriteLine(activeModsNode.OuterXml);
+
+            foreach (var modDir in modDirs)
+            {
+                var aboutPath = modDir + "\\About";
+                XmlDocument modAboutXmlDocument = new XmlDocument();
+                modAboutXmlDocument.Load(aboutPath+"\\About.xml");
+                var modMetaDataNode = modAboutXmlDocument.SelectSingleNode("ModMetaData");
+                var name = modMetaDataNode.SelectSingleNode("name").InnerText;
+                var packageId = modMetaDataNode.SelectSingleNode("packageId").InnerText;
+                var idFile = new StreamReader(aboutPath + "\\PublishedFileId.txt");
+                string id = idFile.ReadLine();
+                idFile.Close();
+                modInfoList.Add(new ModInfo(packageId,id,name));
+            }
+
             foreach (XmlElement childNode in activeModsNode.ChildNodes)
             {
                 modList.Add(childNode.InnerText);
@@ -75,6 +95,17 @@ namespace RimworldModManager
             Console.WriteLine();
             Console.WriteLine($"Total: {modList.Count} " +
                               $"Expansions: {expansionList.Count}");
+
+            //var maxPackageIdLength = modInfoList.Select(x => x.PackageId.Length).Max();
+            //var maxNameLength = modInfoList.Select(x => x.Name.Length).Max();
+            //var maxIdLength = modInfoList.Select(x => x.Id.Length).Max();
+
+            Console.WriteLine($"{"Name",-45}{"Package Id",-45}{"Id",-15}");
+            Console.WriteLine($"{"----",-45}{"----------",-45}{"--",-15}");
+            foreach (var modInfo in modInfoList)
+            {
+                Console.WriteLine($"{modInfo.Name,-45}{modInfo.PackageId,-45}{modInfo.Id,-15}");
+            }
         }
     }
 }
