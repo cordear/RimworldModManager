@@ -38,9 +38,9 @@ namespace RimworldModManager
 
         static void ListMods()
         {
-            List<string> modList = new List<string>();
             List<string> expansionList = new List<string>();
             List<ModInfo> modInfoList = new List<ModInfo>();
+            HashSet<string> modHashSet = new HashSet<string>();
             var configPath = Directory.GetParent(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
                 .ToString();
             configPath += "\\LocalLow\\Ludeon Studios\\RimWorld by Ludeon Studios\\Config\\ModsConfig.xml";
@@ -66,45 +66,39 @@ namespace RimworldModManager
                 var idFile = new StreamReader(aboutPath + "\\PublishedFileId.txt");
                 string id = idFile.ReadLine();
                 idFile.Close();
-                modInfoList.Add(new ModInfo(packageId,id,name));
+                var createTime = Directory.GetCreationTime(aboutPath + "\\About.xml");
+                modInfoList.Add(new ModInfo(packageId,id,name,createTime));
             }
+
+            modInfoList=modInfoList.OrderBy(x => x.Name).ToList();
 
             foreach (XmlElement childNode in activeModsNode.ChildNodes)
             {
-                modList.Add(childNode.InnerText);
+                modHashSet.Add(childNode.InnerText);
             }
-
             foreach (XmlElement element in knownExpansionsNode)
             {
                 expansionList.Add(element.InnerText);
             }
 
-            Console.WriteLine("Active Mods:");
-            foreach (var modName in modList)
+            foreach (var t in modInfoList)
             {
-                Console.WriteLine($"\u001b[32m{modName}\u001b[0m");
+                if (modHashSet.Contains(t.PackageId.ToLower()))
+                {
+                    t.IsActive = true;
+                }
             }
-
-            Console.WriteLine();
-            Console.WriteLine("Known expansions:");
-            foreach (var expansionName in expansionList)
-            {
-                Console.WriteLine($"\u001b[33m{expansionName}\u001b[0m");
-            }
-
-            Console.WriteLine();
-            Console.WriteLine($"Total: {modList.Count} " +
-                              $"Expansions: {expansionList.Count}");
 
             //var maxPackageIdLength = modInfoList.Select(x => x.PackageId.Length).Max();
             //var maxNameLength = modInfoList.Select(x => x.Name.Length).Max();
             //var maxIdLength = modInfoList.Select(x => x.Id.Length).Max();
 
-            Console.WriteLine($"{"Name",-45}{"Package Id",-45}{"Id",-15}");
-            Console.WriteLine($"{"----",-45}{"----------",-45}{"--",-15}");
+            Console.WriteLine($"{"Name",-40}{"Package Id",-45}{"Id",-15}{"Create Time",-10}{"Active",-10}");
+            Console.WriteLine($"{"----",-40}{"----------",-45}{"--",-15}{"-----------",-10}{"------",-10}");
             foreach (var modInfo in modInfoList)
             {
-                Console.WriteLine($"{modInfo.Name,-45}{modInfo.PackageId,-45}{modInfo.Id,-15}");
+                Console.WriteLine($"{modInfo.Name,-40}{modInfo.PackageId,-45}{modInfo.Id,-15}" +
+                                  $"{modInfo.CreateTime.ToShortDateString(),-10}{modInfo.IsActive,-10}");
             }
         }
     }
