@@ -3,14 +3,22 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Threading.Tasks;
 using System.Xml;
+using Microsoft.VisualBasic;
 
 namespace RimworldModManager
 {
     class Program
     {
+        static readonly HttpClient client = new HttpClient();
+        static readonly Uri DownloaderUri = new Uri("https://backend-02-prd.steamworkshopdownloader.io/");
         static void Main(string[] args)
         {
+            client.BaseAddress = DownloaderUri;
             if (args.Length==0 || args[0][0]!='-')
             {
                 Console.WriteLine("Error: No operation specified. (use -h for help)");
@@ -43,12 +51,24 @@ namespace RimworldModManager
         static void ListMods(string operation)
         {
             var currentDir = Environment.CurrentDirectory;
+            List<ModInfo> modInfoList = new List<ModInfo>();
             if (operation.Length == 1)
             {
                 if (!File.Exists(currentDir + "\\modConfig.xml"))
                 {
                     Console.WriteLine("There is no modConfig.xml in current directory. Now creating...");
                     CreateModConfigXml();
+                }
+                else
+                {
+                    ModConfigXmlparser(ref modInfoList);
+                    Console.WriteLine($"{"Name",-40}{"Id",-15}{"Create Time",-15}{"Active",-10}");
+                    Console.WriteLine($"{"----",-40}{"--",-15}{"-----------",-15}{"------",-10}");
+                    foreach (var modInfo in modInfoList)
+                    {
+                        Console.WriteLine($"{modInfo.Name,-40}{modInfo.Id,-15}" +
+                                          $"{modInfo.CreateTime.ToShortDateString(),-15}{modInfo.IsActive,-10}");
+                    }
                 }
             }
             else
@@ -81,6 +101,18 @@ namespace RimworldModManager
                             CreateModConfigXml();
                         }
                         break;
+                    case 'u':
+                        Console.WriteLine("Now checking mod upgrade...");
+                        ModConfigXmlparser(ref modInfoList);
+                        foreach (var modInfo in modInfoList)
+                        {
+                             var result= CheckModUpgradeAsync(modInfo.Id);
+                            //Console.WriteLine(result.Result.title);
+
+                        }
+
+                        Console.ReadKey();
+                        break;
                     default:
                         Console.WriteLine("Unknown operation. Try again.");
                         break;
@@ -88,35 +120,10 @@ namespace RimworldModManager
                 return;
             }
 
-            List<ModInfo> modInfoList = new List<ModInfo>();
-            var modConfigXml = new XmlDocument();
-            modConfigXml.Load(Environment.CurrentDirectory+"\\modConfig.xml");
-            var rootNode = modConfigXml.SelectSingleNode("Mods");
-            foreach (XmlElement childNode in rootNode.ChildNodes)
-            {
-                modInfoList.Add(new ModInfo(childNode.SelectSingleNode("PackageId").InnerText,
-                    childNode.SelectSingleNode("Id").InnerText,
-                    childNode.SelectSingleNode("Name").InnerText,
-                    DateTimeOffset.FromUnixTimeSeconds(Convert.ToInt64(childNode.SelectSingleNode("CreateTime").InnerText)).UtcDateTime,
-                    childNode.SelectSingleNode("Status").InnerText=="True"?true:false
-                    ));
-            }
-            //foreach (XmlElement element in knownExpansionsNode)
-            //{
-            //    expansionList.Add(element.InnerText);
-            //}
+            //var maxPackageIdLength = modInfoList.Select(x => x.PackageId.Length).Max();
+            //var maxNameLength = modInfoList.Select(x => x.Name.Length).Max();
+            //var maxIdLength = modInfoList.Select(x => x.Id.Length).Max();
 
-            ////var maxPackageIdLength = modInfoList.Select(x => x.PackageId.Length).Max();
-            ////var maxNameLength = modInfoList.Select(x => x.Name.Length).Max();
-            ////var maxIdLength = modInfoList.Select(x => x.Id.Length).Max();
-
-            Console.WriteLine($"{"Name",-40}{"Id",-15}{"Create Time",-15}{"Active",-10}");
-            Console.WriteLine($"{"----",-40}{"--",-15}{"-----------",-15}{"------",-10}");
-            foreach (var modInfo in modInfoList)
-            {
-                Console.WriteLine($"{modInfo.Name,-40}{modInfo.Id,-15}" +
-                                  $"{modInfo.CreateTime.ToShortDateString(),-15}{modInfo.IsActive,-10}");
-            }
         }
 
         static bool CreateModConfigXml()
@@ -195,6 +202,44 @@ namespace RimworldModManager
             modConfigXml.Save(modConfigXmlPath);
             Console.WriteLine($"modConfig.xml created. Path:{modConfigXmlPath}");
             return true;
+        }
+
+        static bool ModConfigXmlparser(ref List<ModInfo> modInfoList)
+        {
+            var currentDir = Environment.CurrentDirectory;
+            var modConfigXml = new XmlDocument();
+            modConfigXml.Load(currentDir + "\\modConfig.xml");
+            var rootNode = modConfigXml.SelectSingleNode("Mods");
+            foreach (XmlElement childNode in rootNode.ChildNodes)
+            {
+                modInfoList.Add(new ModInfo(childNode.SelectSingleNode("PackageId").InnerText,
+                    childNode.SelectSingleNode("Id").InnerText,
+                    childNode.SelectSingleNode("Name").InnerText,
+                    DateTimeOffset.FromUnixTimeSeconds(Convert.ToInt64(childNode.SelectSingleNode("CreateTime").InnerText)).UtcDateTime,
+                    childNode.SelectSingleNode("Status").InnerText == "True"
+                ));
+            }
+            return true;
+        }
+
+        static async Task<Root> CheckModUpgradeAsync(string Id)
+        {
+            try
+            {
+                var content = new StringContent($"[{Id}]");
+                var response = await client.PostAsync("api/details/file", content);
+                response.EnsureSuccessStatusCode();
+                var result = await response.Content.ReadAsStreamAsync();
+                var modResponse = await JsonSerializer.DeserializeAsync<Root[]>(result);
+                Console.WriteLine(modResponse[0].title);
+                return modResponse[0];
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error: {e.Message}");
+            }
+
+            return null;
         }
     }
 }

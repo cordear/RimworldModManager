@@ -2,7 +2,7 @@
   "profiles": {
     "RimworldModManager": {
       "commandName": "Project",
-      "commandLineArgs": "-Qy"
+      "commandLineArgs": "-Qu"
     }
   }
 }
