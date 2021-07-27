@@ -104,14 +104,33 @@ namespace RimworldModManager
                     case 'u':
                         Console.WriteLine("Now checking mod upgrade...");
                         ModConfigXmlparser(ref modInfoList);
+                        var taskList = new List<Task<modUpgradeInfo>>();
                         foreach (var modInfo in modInfoList)
                         {
-                             var result= CheckModUpgradeAsync(modInfo.Id);
+                            var result = CheckModUpgradeAsync(modInfo.Id, modInfo.CreateTime);
                             //Console.WriteLine(result.Result.title);
+                            taskList.Add(result);
 
                         }
 
-                        Console.ReadKey();
+                        Dictionary<string, ModInfo> modInfoDict = new Dictionary<string, ModInfo>();
+                        foreach (var modInfo in modInfoList)
+                        {
+                            modInfoDict.Add(modInfo.Id,modInfo);
+                        }
+                        Task.WaitAll(taskList.ToArray());
+                        var resultList = taskList.Where(x => x.Result.CanUpgrade).Select(x => x.Result).ToList();
+                        Console.WriteLine($"{resultList.Count} mods can be upgrade:");
+                        Console.WriteLine($"{"Name",-40}{"Id",-15}{"Status",-40}");
+                        Console.WriteLine($"{"----",-40}{"--",-15}{"------",-40}");
+                        foreach (var mod in resultList)
+                        {
+                            var modInfo = modInfoDict[mod.Id];
+                            var modUpgradeTime = UnixTimeStampToDateTime(mod.TimeStamp);
+                            Console.WriteLine($"{modInfo.Name,-40}{modInfo.Id,-15}{modInfo.CreateTime.ToShortDateString()+" -> "+modUpgradeTime.ToShortDateString(),-40}");
+                        }
+                        
+                        //Console.ReadKey();
                         break;
                     default:
                         Console.WriteLine("Unknown operation. Try again.");
@@ -221,8 +240,8 @@ namespace RimworldModManager
             }
             return true;
         }
-
-        static async Task<Root> CheckModUpgradeAsync(string Id)
+        
+        static async Task<modUpgradeInfo> CheckModUpgradeAsync(string Id,DateTime localModeCreateTime)
         {
             try
             {
@@ -231,15 +250,28 @@ namespace RimworldModManager
                 response.EnsureSuccessStatusCode();
                 var result = await response.Content.ReadAsStreamAsync();
                 var modResponse = await JsonSerializer.DeserializeAsync<Root[]>(result);
-                Console.WriteLine(modResponse[0].title);
-                return modResponse[0];
+                if (modResponse[0].time_updated > ((DateTimeOffset) localModeCreateTime).ToUnixTimeSeconds())
+                {
+                    //var recentUpgradeTime = UnixTimeStampToDateTime(modResponse[0].time_updated);
+                    //Console.WriteLine($"Mod can be Upgraded:{modResponse[0].title}: {localModeCreateTime.ToShortDateString()}->{recentUpgradeTime.ToShortDateString()}");
+                    return new modUpgradeInfo(Id, true, modResponse[0].time_updated);
+                }
+
+                return new modUpgradeInfo(Id, false, modResponse[0].time_updated);
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Error: {e.Message}");
             }
 
-            return null;
+            return new modUpgradeInfo(Id, false, 0);
+        }
+        public static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
+        {
+            // Unix timestamp is seconds past epoch
+            System.DateTime dtDateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
+            dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
+            return dtDateTime;
         }
     }
 }

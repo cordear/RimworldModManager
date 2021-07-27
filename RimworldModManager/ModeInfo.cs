@@ -6,6 +6,20 @@ using System.Threading.Tasks;
 
 namespace RimworldModManager
 {
+    struct modUpgradeInfo
+    {
+        public string Id;
+        public bool CanUpgrade;
+        public long TimeStamp;
+
+        public modUpgradeInfo(string id, bool canUpgrade, long time)
+        {
+            Id = id;
+            CanUpgrade = canUpgrade;
+            TimeStamp = time;
+        }
+
+    }
     class ModInfo
     {
         public string PackageId { set; get; }
