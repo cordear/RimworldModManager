@@ -74,4 +74,8 @@ namespace RimworldModManager
         public VoteData vote_data { get; set; }
         public int language { get; set; }
     }
+    public class UUID
+    {
+        public string uuid { get; set; }
+    }
 }
