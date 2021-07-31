@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -80,10 +81,47 @@ namespace RimworldModManager
                     }
 
                     Task.WaitAll(modInfoList.ToArray());
+                    double totalSize = 0;
                     Console.WriteLine("Install mod list:");
                     foreach (var modeInfo in modInfoList)
                     {
                         Console.WriteLine(modeInfo.Result.title);
+                        totalSize += Convert.ToInt64(modeInfo.Result.file_size);
+                    }
+
+                    Console.WriteLine($"Total file size: {totalSize/1024/1024:0.00}M");
+                    Console.Write("Continue to install? [Y/n]:");
+                    var key = Console.ReadKey();
+                    Console.WriteLine();
+                    while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
+                    {
+                        Console.Write("Illegal input, try again [Y/n]:");
+                        key = Console.ReadKey();
+                        Console.WriteLine();
+                    }
+                    if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
+                    {
+                        Console.WriteLine("Now downloading...");
+                        List<Task> downloadTaskList = new List<Task>();
+                        foreach (var mod in modInfoList)
+                        {
+                            downloadTaskList.Add(DownloadModAsync(mod.Result));
+                        }
+
+                        Task.WaitAll(downloadTaskList.ToArray());
+                        Console.WriteLine("Download completed.");
+                        Console.WriteLine("Now unzip file...");
+                        foreach (var mod in modInfoList)
+                        {
+                            ZipFile.ExtractToDirectory($"{mod.Result.title_disk_safe}.zip",
+                                $"{mod.Result.title_disk_safe}");
+                        }
+
+                        Console.WriteLine("Done.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Installation canceled.");
                     }
                 }
             }
@@ -319,17 +357,28 @@ namespace RimworldModManager
             return null;
         }
 
-        public static async Task DownloadModAsync(long id)
+        public static async Task DownloadModAsync(Root modInfo)
         {
-            var content = new StringContent($"{{\"publishedFileId\":{id}," +
+            var content = new StringContent($"{{\"publishedFileId\":{Convert.ToUInt64(modInfo.publishedfileid)}," +
                                             $"\"collectionId\":null,\"extract\":true," +
-                                            $"\"hidden\":true,\"direct\":false}}");
+                                            $"\"hidden\":false,\"direct\":false}}");
             var response =await client.PostAsync("api/download/request", content);
             var uuid = await JsonSerializer.DeserializeAsync<UUID>(await response.Content.ReadAsStreamAsync());
-            Console.WriteLine(uuid.uuid);
             var downloadContent = await client.GetAsync($"api/download/transmit?uuid={uuid.uuid}");
-            var fs = new FileStream($"{id}.zip", FileMode.Create);
+            while (!downloadContent.IsSuccessStatusCode)
+            {
+                content = new StringContent($"{{\"publishedFileId\":{Convert.ToUInt64(modInfo.publishedfileid)}," +
+                                            $"\"collectionId\":null,\"extract\":true," +
+                                            $"\"hidden\":false,\"direct\":false}}");
+                response = await client.PostAsync("api/download/request", content);
+                uuid = await JsonSerializer.DeserializeAsync<UUID>(await response.Content.ReadAsStreamAsync());
+                Console.WriteLine($"Trying to re-download:{modInfo.title} {uuid.uuid}");
+                downloadContent = await client.GetAsync($"api/download/transmit?uuid={uuid.uuid}");
+
+            }
+            var fs = new FileStream($"{modInfo.title_disk_safe}.zip", FileMode.Create);
             await downloadContent.Content.CopyToAsync(fs);
+
             fs.Close();
         }
         public static List<modUpgradeInfo> GetModUpdateList(List<ModInfo> modInfoList)
