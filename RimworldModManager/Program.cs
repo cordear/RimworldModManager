@@ -80,57 +80,24 @@ namespace RimworldModManager
                         modIdList.Add(modId);
                     }
 
-                    List<Task<Root>> modInfoList = new List<Task<Root>>();
-                    Console.WriteLine("Now checking mod information...");
-                    foreach (var id in modIdList)
-                    {
-                        modInfoList.Add(GetModInfoAsync(id));
-                    }
+                    InstallMods(modIdList);
 
-                    Task.WaitAll(modInfoList.ToArray());
-                    double totalSize = 0;
-                    Console.WriteLine("Install mod list:");
-                    foreach (var modInfo in modInfoList)
-                    {
-                        Console.WriteLine($"{modInfo.Result.title}" +
-                                          $" - {UnixTimeStampToDateTime(modInfo.Result.time_updated).ToShortDateString()}");
-                        totalSize += Convert.ToInt64(modInfo.Result.file_size);
-                    }
-
-                    Console.WriteLine($"Total file size: {totalSize/1024/1024:0.00}M");
-                    Console.Write("Continue to install? [Y/n]:");
-                    var key = Console.ReadKey();
-                    Console.WriteLine();
-                    while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
-                    {
-                        Console.Write("Illegal input, try again [Y/n]:");
-                        key = Console.ReadKey();
-                        Console.WriteLine();
-                    }
-                    if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
-                    {
-                        Console.WriteLine("Now downloading...");
-                        List<Task> downloadTaskList = new List<Task>();
-                        foreach (var mod in modInfoList)
-                        {
-                            downloadTaskList.Add(DownloadModAsync(mod.Result));
-                        }
-
-                        Task.WaitAll(downloadTaskList.ToArray());
-                        Console.WriteLine("Download completed.");
-                        Console.WriteLine("Now unzip file...");
-                        foreach (var mod in modInfoList)
-                        {
-                            ZipFile.ExtractToDirectory($"{mod.Result.title_disk_safe}.zip",
-                                $"{mod.Result.title_disk_safe}");
-                        }
-
-                        Console.WriteLine("Done.");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Installation canceled.");
-                    }
+                }
+            }
+            else
+            {
+                switch (operation[1])
+                {
+                    case 'u':
+                        var modInfoList = new List<ModInfo>();
+                        Console.WriteLine("Now checking mod upgrade...");
+                        ModConfigXmlparser(ref modInfoList);
+                        var resultList = GetModUpdateList(modInfoList);
+                        InstallMods(resultList.Select(x=>Convert.ToInt64(x.Id)).ToList());
+                        break;
+                    default:
+                        Console.WriteLine("Unknown operation. Try again.");
+                        break;
                 }
             }
         }
@@ -195,6 +162,12 @@ namespace RimworldModManager
                         foreach (var modInfo in modInfoList)
                         {
                             modInfoDict.Add(modInfo.Id, modInfo);
+                        }
+
+                        if (resultList.Count == 0)
+                        {
+                            Console.WriteLine("No mod can be upgrade.");
+                            return;
                         }
                         Console.WriteLine($"{resultList.Count} mods can be upgrade:");
                         Console.WriteLine($"{"Name",-40}{"Id",-15}{"Version",-40}");
@@ -401,6 +374,69 @@ namespace RimworldModManager
                 Select(x => x.Result).ToList();
             return resultList;
         }
+
+        public static void InstallMods(List<long> modIdList)
+        {
+            List<Task<Root>> modInfoList = new List<Task<Root>>();
+            Console.WriteLine("Now checking mod information...");
+            foreach (var id in modIdList)
+            {
+                modInfoList.Add(GetModInfoAsync(id));
+            }
+
+            Task.WaitAll(modInfoList.ToArray());
+            double totalSize = 0;
+            Console.WriteLine("Install mod list:");
+            foreach (var modInfo in modInfoList)
+            {
+                Console.WriteLine($"{modInfo.Result.title}" +
+                                  $" - {UnixTimeStampToDateTime(modInfo.Result.time_updated).ToShortDateString()}");
+                totalSize += Convert.ToInt64(modInfo.Result.file_size);
+            }
+
+            Console.WriteLine($"Total file size: {totalSize / 1024 / 1024:0.00}M");
+            Console.Write("Continue to install? [Y/n]:");
+            var key = Console.ReadKey();
+            Console.WriteLine();
+            while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
+            {
+                Console.Write("Illegal input, try again [Y/n]:");
+                key = Console.ReadKey();
+                Console.WriteLine();
+            }
+            if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
+            {
+                Console.WriteLine("Now downloading...");
+                List<Task> downloadTaskList = new List<Task>();
+                foreach (var mod in modInfoList)
+                {
+                    downloadTaskList.Add(DownloadModAsync(mod.Result));
+                }
+
+                Task.WaitAll(downloadTaskList.ToArray());
+                Console.WriteLine("Now unzip file...");
+                foreach (var mod in modInfoList)
+                {
+                    var modDir = setting.GameModDirPath +
+                                 $"\\{mod.Result.publishedfileid}_{mod.Result.title_disk_safe}";
+                    if (Directory.Exists(modDir))
+                    {
+                        Console.WriteLine($"Removing exist directory: {modDir}");
+                        Directory.Delete(modDir, true);
+                    }
+                    ZipFile.ExtractToDirectory($"{mod.Result.title_disk_safe}.zip",
+                        modDir);
+                }
+
+                Console.WriteLine("Now recreating modConfig.xml...");
+                CreateModConfigXml();
+                Console.WriteLine("Done.");
+            }
+            else
+            {
+                Console.WriteLine("Installation canceled.");
+            }
+        }
         public static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
         {
             // Unix timestamp is seconds past epoch
@@ -432,13 +468,24 @@ namespace RimworldModManager
                 Console.WriteLine("Nothing changed.");
                 return false;
             }
-            else
-            {
-                var fs = new StreamReader("./RimworldModManagerSetting.json");
-                setting = JsonSerializer.Deserialize<Setting>(fs.ReadToEnd());
-                fs.Close();
-            }
+
+            var fs = new StreamReader("./RimworldModManagerSetting.json");
+            setting = JsonSerializer.Deserialize<Setting>(fs.ReadToEnd());
+            fs.Close();
             //Console.WriteLine(setting.GameModDirPath);
+            //Path Check
+            var rimworldRootDir = Directory.GetParent(setting.GameModDirPath);
+            if (!File.Exists(rimworldRootDir + "\\RimWorldWin64.exe"))
+            {
+                Console.WriteLine($"Path seems error: {setting.GameModDirPath}");
+                return false;
+            }
+
+            if (!File.Exists(setting.ModConfigXmlPath + "\\ModsConfig.xml"))
+            {
+                Console.WriteLine($"Path seems error: {setting.ModConfigXmlPath}");
+                return false;
+            }
             return true;
         }
     }
