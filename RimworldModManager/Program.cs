@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Xml;
@@ -17,8 +18,14 @@ namespace RimworldModManager
     {
         static readonly HttpClient client = new HttpClient();
         static readonly Uri CheckInfoUri = new Uri("https://backend-02-prd.steamworkshopdownloader.io/");
+        private static Setting setting = new Setting();
         static void Main(string[] args)
         {
+            if (!InitSetting())
+            {
+                Console.WriteLine("RimworldModManagerSetting.json missing or having wrong value.");
+                return;
+            }
             client.BaseAddress = CheckInfoUri;
             if (args.Length==0 || args[0][0]!='-')
             {
@@ -67,7 +74,7 @@ namespace RimworldModManager
                     {
                         if (!Int64.TryParse(args[i], out var modId))
                         {
-                            Console.WriteLine($"Mod id in wrong format (Should be a number): {args[i]}. Try again.");
+                            Console.WriteLine($"Mod id in wrong format (must be a number): {args[i]}. Try again.");
                             return;
                         }
                         modIdList.Add(modId);
@@ -83,10 +90,11 @@ namespace RimworldModManager
                     Task.WaitAll(modInfoList.ToArray());
                     double totalSize = 0;
                     Console.WriteLine("Install mod list:");
-                    foreach (var modeInfo in modInfoList)
+                    foreach (var modInfo in modInfoList)
                     {
-                        Console.WriteLine(modeInfo.Result.title);
-                        totalSize += Convert.ToInt64(modeInfo.Result.file_size);
+                        Console.WriteLine($"{modInfo.Result.title}" +
+                                          $" - {UnixTimeStampToDateTime(modInfo.Result.time_updated).ToShortDateString()}");
+                        totalSize += Convert.ToInt64(modInfo.Result.file_size);
                     }
 
                     Console.WriteLine($"Total file size: {totalSize/1024/1024:0.00}M");
@@ -189,8 +197,8 @@ namespace RimworldModManager
                             modInfoDict.Add(modInfo.Id, modInfo);
                         }
                         Console.WriteLine($"{resultList.Count} mods can be upgrade:");
-                        Console.WriteLine($"{"Name",-40}{"Id",-15}{"Status",-40}");
-                        Console.WriteLine($"{"----",-40}{"--",-15}{"------",-40}");
+                        Console.WriteLine($"{"Name",-40}{"Id",-15}{"Version",-40}");
+                        Console.WriteLine($"{"----",-40}{"--",-15}{"-------",-40}");
                         foreach (var mod in resultList)
                         {
                             var modInfo = modInfoDict[mod.Id];
@@ -219,12 +227,8 @@ namespace RimworldModManager
             List<string> expansionList = new List<string>();
             List<ModInfo> modInfoList = new List<ModInfo>();
             HashSet<string> modHashSet = new HashSet<string>();
-            var configPath = 
-                Directory.GetParent(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData))
-                .ToString();
-            configPath += "\\LocalLow\\Ludeon Studios\\RimWorld by Ludeon Studios\\Config\\ModsConfig.xml";
-            var gameModDirPath = "C:\\GOG Games\\RimWorld\\Mods";
-            var modDirs = Directory.GetDirectories(gameModDirPath);
+            var configPath = setting.ModConfigXmlPath + "\\ModsConfig.xml";
+            var modDirs = Directory.GetDirectories(setting.GameModDirPath);
 
             XmlDocument modsConfigXmlDocument = new XmlDocument();
             modsConfigXmlDocument.Load(configPath);
@@ -404,6 +408,38 @@ namespace RimworldModManager
                 new DateTime(1970, 1, 1, 0, 0, 0, 0, System.DateTimeKind.Utc);
             dtDateTime = dtDateTime.AddSeconds(unixTimeStamp).ToLocalTime();
             return dtDateTime;
+        }
+
+        private static bool InitSetting()
+        {
+            if (!File.Exists("./RimworldModManagerSetting.json"))
+            {
+                Console.Write("RimworldModManagerSetting.json seems missing, create now? [Y/n]:");
+                var key = Console.ReadKey();
+                Console.WriteLine();
+                while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
+                {
+                    Console.Write("Illegal input, try again [Y/n]:");
+                    key = Console.ReadKey();
+                    Console.WriteLine();
+                }
+                if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
+                {
+                    File.WriteAllText("./RimworldModManagerSetting.json",JsonSerializer.Serialize(setting));
+                    Console.WriteLine("RimworldModManagerSetting.json created. Modify the file before using other command.");
+                    return false;
+                }
+                Console.WriteLine("Nothing changed.");
+                return false;
+            }
+            else
+            {
+                var fs = new StreamReader("./RimworldModManagerSetting.json");
+                setting = JsonSerializer.Deserialize<Setting>(fs.ReadToEnd());
+                fs.Close();
+            }
+            //Console.WriteLine(setting.GameModDirPath);
+            return true;
         }
     }
 }
