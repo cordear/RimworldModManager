@@ -4,8 +4,6 @@ RimworldModManger is a cli tool for checking, upgrading and installing rimworld 
 
 ## Installation
 
-### Stand-alone version
-
 1. Choose the version you need. Stand-alone version doesn't require .NET rutime. If you don't want to install runtime, you must choose stand-alone version. Framework dependency verion need the latest version [.NET runtime](https://dotnet.microsoft.com/download).
 2. Unzip the file to your Rimworld root directory (recommend) or anywhere you like.
 3. (Optinal) Add the directory to your system PATH.
