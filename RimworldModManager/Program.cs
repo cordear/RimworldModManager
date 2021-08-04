@@ -459,6 +459,11 @@ namespace RimworldModManager
 
         private static bool InitSetting()
         {
+            if (!Directory.Exists("./RimworldModDownloadTemp"))
+            {
+                Console.WriteLine("Now creating temp directory for mod download.");
+                Directory.CreateDirectory("./RimworldModDownloadTemp");
+            }
             if (!File.Exists("./RimworldModManagerSetting.json"))
             {
                 Console.Write("RimworldModManagerSetting.json seems missing, create now? [Y/n]:");
@@ -483,11 +488,6 @@ namespace RimworldModManager
             var fs = new StreamReader("./RimworldModManagerSetting.json");
             setting = JsonSerializer.Deserialize<Setting>(fs.ReadToEnd());
             fs.Close();
-            if (!Directory.Exists("./RimworldModDownloadTemp"))
-            {
-                Console.WriteLine("Now creating temp directory for mod download.");
-                Directory.CreateDirectory("./RimworldModDownloadTemp");
-            }
             //Console.WriteLine(setting.GameModDirPath);
             //Path Check
             var rimworldRootDir = Directory.GetParent(setting.GameModDirPath);
