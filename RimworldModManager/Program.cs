@@ -355,7 +355,7 @@ namespace RimworldModManager
                 downloadContent = await client.GetAsync($"api/download/transmit?uuid={uuid.uuid}");
 
             }
-            var fs = new FileStream(setting.ModTempDirPath+$"{modInfo.title_disk_safe}.zip", FileMode.Create);
+            var fs = new FileStream(setting.ModTempDirPath+$"\\{modInfo.title_disk_safe}.zip", FileMode.Create);
             await downloadContent.Content.CopyToAsync(fs);
 
             fs.Close();
@@ -426,10 +426,19 @@ namespace RimworldModManager
                         Console.WriteLine($"Removing exist directory: {modDir}");
                         Directory.Delete(modDir, true);
                     }
-                    ZipFile.ExtractToDirectory($"{mod.Result.title_disk_safe}.zip",
+                    ZipFile.ExtractToDirectory(setting.ModTempDirPath+$"\\{mod.Result.title_disk_safe}.zip",
                         modDir);
                 }
 
+                Console.WriteLine("Now removing downloaded file...");
+                foreach (var mod in modInfoList)
+                {
+                    if (File.Exists(setting.ModTempDirPath + $"\\{mod.Result.title_disk_safe}.zip"))
+                    {
+                        Console.WriteLine($"Removing {mod.Result.title_disk_safe}.zip");
+                        File.Delete(setting.ModTempDirPath+$"\\{mod.Result.title_disk_safe}.zip");
+                    }
+                }
                 Console.WriteLine("Now recreating modConfig.xml...");
                 CreateModConfigXml();
                 Console.WriteLine("Done.");
