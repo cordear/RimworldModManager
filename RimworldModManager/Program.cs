@@ -115,12 +115,13 @@ namespace RimworldModManager
                 else
                 {
                     ModConfigXmlparser(ref modInfoList);
-                    Console.WriteLine($"{"Name",-40}{"Id",-15}{"Create Time",-15}{"Active",-10}");
-                    Console.WriteLine($"{"----",-40}{"--",-15}{"-----------",-15}{"------",-10}");
+                    Console.WriteLine($"{"Id",-15}{"Create Time",-15}{"Active",-10}{"Name",-40}");
+                    Console.WriteLine($"{"--",-15}{"-----------",-15}{"------",-10}{"----",-40}");
                     foreach (var modInfo in modInfoList)
                     {
-                        Console.WriteLine($"{modInfo.Name,-40}{modInfo.Id,-15}" +
-                                          $"{modInfo.CreateTime.ToShortDateString(),-15}{modInfo.IsActive,-10}");
+                        Console.WriteLine($"{modInfo.Id,-15}" +
+                                          $"{modInfo.CreateTime.ToShortDateString(),-15}" +
+                                          $"{modInfo.IsActive,-10}{modInfo.Name,-40}");
                     }
                 }
             }
@@ -170,14 +171,15 @@ namespace RimworldModManager
                             return;
                         }
                         Console.WriteLine($"{resultList.Count} mods can be upgrade:");
-                        Console.WriteLine($"{"Name",-40}{"Id",-15}{"Version",-40}");
-                        Console.WriteLine($"{"----",-40}{"--",-15}{"-------",-40}");
+                        Console.WriteLine($"{"Id",-15}{"Version",-40}{"Name",-40}");
+                        Console.WriteLine($"{"--",-15}{"-------",-40}{"----",-40}");
                         foreach (var mod in resultList)
                         {
                             var modInfo = modInfoDict[mod.Id];
                             var modUpgradeTime = UnixTimeStampToDateTime(mod.TimeStamp);
-                            Console.WriteLine($"{modInfo.Name,-40}{modInfo.Id,-15}" +
-                                              $"{modInfo.CreateTime.ToShortDateString()+" -> "+modUpgradeTime.ToShortDateString(),-40}");
+                            Console.WriteLine($"{modInfo.Id,-15}" +
+                                              $"{modInfo.CreateTime.ToShortDateString()+" -> "+modUpgradeTime.ToShortDateString(),-40}" +
+                                              $"{modInfo.Name,-40}");
                         }
                         
                         //Console.ReadKey();
@@ -353,7 +355,7 @@ namespace RimworldModManager
                 downloadContent = await client.GetAsync($"api/download/transmit?uuid={uuid.uuid}");
 
             }
-            var fs = new FileStream($"{modInfo.title_disk_safe}.zip", FileMode.Create);
+            var fs = new FileStream(setting.ModTempDirPath+$"{modInfo.title_disk_safe}.zip", FileMode.Create);
             await downloadContent.Content.CopyToAsync(fs);
 
             fs.Close();
@@ -472,6 +474,11 @@ namespace RimworldModManager
             var fs = new StreamReader("./RimworldModManagerSetting.json");
             setting = JsonSerializer.Deserialize<Setting>(fs.ReadToEnd());
             fs.Close();
+            if (!Directory.Exists("./RimworldModDownloadTemp"))
+            {
+                Console.WriteLine("Now creating temp directory for mod download.");
+                Directory.CreateDirectory("./RimworldModDownloadTemp");
+            }
             //Console.WriteLine(setting.GameModDirPath);
             //Path Check
             var rimworldRootDir = Directory.GetParent(setting.GameModDirPath);
