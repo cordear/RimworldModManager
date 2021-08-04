@@ -11,7 +11,19 @@ namespace RimworldModManager
     {
         private string _modConfigXmlPath;
         private string _modTempDirPath;
-        public string GameModDirPath { set; get; }
+        private string _gameModDirPath;
+
+        public string GameModDirPath
+        {
+            set => _gameModDirPath = value;
+            get
+            {
+                if (!string.IsNullOrEmpty(_gameModDirPath)) return _gameModDirPath;
+                var modDirPath = Directory.GetCurrentDirectory();
+                modDirPath += "\\Mods";
+                return modDirPath;
+            }
+        }
 
         public string ModConfigXmlPath
         {

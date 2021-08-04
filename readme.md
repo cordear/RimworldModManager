@@ -35,6 +35,14 @@ RimworldModManager -Qu
 RimworldModManager -S [steamworkshop id]
 ```
 
+The `steamworkshop id` can be found in the url:
+
+For example
+
+https://steamcommunity.com/sharedfiles/filedetails/?id=2023507013
+
+is the steam workshop page for _Vanilla Expanded Framework_. Then `2023507013` is the `steamworkshop id`.
+
 ### Upgrade mods
 
 ```
