@@ -48,10 +48,12 @@ namespace RimworldModManager
                     break;
                 case 'T':
                     Console.WriteLine("This is a test commend");
-                    CreateModConfigXml();
                     break;
                 case 'S':
                     SetupMods(operation,args);
+                    break;
+                case 'R':
+                    Console.WriteLine("Remove mod");
                     break;
                 default:
                     Console.WriteLine($"Error: Unknown operation '{operation}'.");
@@ -225,7 +227,7 @@ namespace RimworldModManager
                 string id = idFile.ReadLine();
                 idFile.Close();
                 var createTime = Directory.GetCreationTime(aboutPath + "\\About.xml");
-                modInfoList.Add(new ModInfo(packageId, id, name, createTime));
+                modInfoList.Add(new ModInfo(packageId, id, name, createTime,modDir));
             }
 
             modInfoList = modInfoList.OrderBy(x => x.Name).ToList();
@@ -261,11 +263,14 @@ namespace RimworldModManager
                 var modCreateTimeNode = modConfigXml.CreateElement("CreateTime");
                 modCreateTimeNode.InnerText = 
                     Convert.ToString(((DateTimeOffset) modInfo.CreateTime).ToUnixTimeSeconds());
+                var modDirNode = modConfigXml.CreateElement("ModDir");
+                modDirNode.InnerText = modInfo.ModDir.Split('\\').Last();
                 modInfoNode.AppendChild(modNameNode);
                 modInfoNode.AppendChild(modPackageIdNode);
                 modInfoNode.AppendChild(modIdNode);
                 modInfoNode.AppendChild(modStatusNode);
                 modInfoNode.AppendChild(modCreateTimeNode);
+                modInfoNode.AppendChild(modDirNode);
                 rootNode.AppendChild(modInfoNode);
             }
             modConfigXml.Save(modConfigXmlPath);
@@ -286,6 +291,7 @@ namespace RimworldModManager
                     childNode.SelectSingleNode("Name").InnerText,
                     DateTimeOffset.FromUnixTimeSeconds(
                         Convert.ToInt64(childNode.SelectSingleNode("CreateTime").InnerText)).UtcDateTime,
+                    childNode.SelectSingleNode("ModDir").InnerText,
                     childNode.SelectSingleNode("Status").InnerText == "True"
                 ));
             }

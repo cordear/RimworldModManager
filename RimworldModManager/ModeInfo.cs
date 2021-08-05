@@ -27,13 +27,15 @@ namespace RimworldModManager
         public string Name { set; get; }
         public DateTime CreateTime { set; get; }
         public bool IsActive { set; get; }
-        public ModInfo(string packageId, string id, string name,DateTime createTime,bool isActive=false)
+        public string ModDir { set; get; }
+        public ModInfo(string packageId, string id, string name,DateTime createTime,string modDir, bool isActive = false)
         {
             PackageId = packageId;
             Id = id;
             Name = name;
             CreateTime = createTime;
             IsActive = isActive;
+            ModDir = modDir;
         }
 
     }
