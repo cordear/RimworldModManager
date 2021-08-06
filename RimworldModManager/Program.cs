@@ -53,7 +53,7 @@ namespace RimworldModManager
                     SetupMods(operation,args);
                     break;
                 case 'R':
-                    Console.WriteLine("Remove mod");
+                    RemoveMods(operation,args);
                     break;
                 default:
                     Console.WriteLine($"Error: Unknown operation '{operation}'.");
@@ -74,7 +74,7 @@ namespace RimworldModManager
                     List<long> modIdList = new List<long>();
                     for (int i = 1; i < args.Length; ++i)
                     {
-                        if (!Int64.TryParse(args[i], out var modId))
+                        if (!long.TryParse(args[i], out var modId))
                         {
                             Console.WriteLine($"Mod id in wrong format (must be a number): {args[i]}. Try again.");
                             return;
@@ -101,6 +101,70 @@ namespace RimworldModManager
                         Console.WriteLine("Unknown operation. Try again.");
                         break;
                 }
+            }
+        }
+
+        static void RemoveMods(string operation, string[] args)
+        {
+            if (operation.Length == 1)
+            {
+                if (args.Length == 1)
+                {
+                    Console.WriteLine("No mod id specified.");
+                }
+                else
+                {
+                    List<long> modIdList = new List<long>();
+                    for (int i = 1; i < args.Length; ++i)
+                    {
+                        if (!long.TryParse(args[i], out var modId))
+                        {
+                            Console.WriteLine($"Mod id in wrong format (must be a number): {args[i]}. Try again.");
+                            return;
+                        }
+                        modIdList.Add(modId);
+                    }
+
+                    var modInfoList = new List<ModInfo>();
+                    ModConfigXmlparser(ref modInfoList);
+                    Dictionary<long, ModInfo> modInfoDict = new Dictionary<long, ModInfo>();
+                    foreach (var modInfo in modInfoList)
+                    {
+                        modInfoDict.Add(Convert.ToInt64(modInfo.Id),modInfo);
+                    }
+
+                    var notFound = modIdList.Where(x => !modInfoDict.ContainsKey(x)).ToList();
+                    if (notFound.Count != 0)
+                    {
+                        Console.WriteLine($"Id not found: {string.Join(' ',notFound)}. Try again.");
+                        return;
+                    }
+
+                    Console.WriteLine("Remove mods:");
+                    foreach (var id in modIdList)
+                    {
+                        Console.WriteLine($"{modInfoDict[id].Name} - {modInfoDict[id].CreateTime.ToShortDateString()}");
+                    }
+
+                    Console.Write("Continue removing? [y/N]:");
+                    if (CheckInput(false))
+                    {
+                        foreach (var id in modIdList)
+                        {
+                            Console.WriteLine($"Now deleting {setting.GameModDirPath}\\{modInfoDict[id].ModDir}");
+                            Directory.Delete(setting.GameModDirPath+$"\\{modInfoDict[id].ModDir}",true);
+                        }
+
+                        Console.WriteLine("Now recreating modConfig.xml...");
+                        CreateModConfigXml();
+                        Console.WriteLine("Done.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Nothing was changed.");
+                    }
+                }
+
             }
         }
         static void ListMods(string operation)
@@ -135,21 +199,13 @@ namespace RimworldModManager
                         if (File.Exists(currentDir + "\\modConfig.xml"))
                         {
                             Console.Write("modConfig.xml already exist. Recreate? [Y/n]:");
-                            var key= Console.ReadKey();
-                            Console.WriteLine();
-                            while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
-                            {
-                                Console.Write("Illegal input, try again [Y/n]:");
-                                key = Console.ReadKey();
-                                Console.WriteLine();
-                            }
-                            if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
+                            if (CheckInput(true))
                             {
                                 CreateModConfigXml();
                             }
                             else
                             {
-                                Console.WriteLine("Nothing changed.");
+                                Console.WriteLine("Nothing was changed.");
                             }
                         }
                         else
@@ -404,15 +460,7 @@ namespace RimworldModManager
 
             Console.WriteLine($"Total file size: {totalSize / 1024 / 1024:0.00}M");
             Console.Write("Continue to install? [Y/n]:");
-            var key = Console.ReadKey();
-            Console.WriteLine();
-            while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
-            {
-                Console.Write("Illegal input, try again [Y/n]:");
-                key = Console.ReadKey();
-                Console.WriteLine();
-            }
-            if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
+            if (CheckInput(true))
             {
                 Console.WriteLine("Now downloading...");
                 List<Task> downloadTaskList = new List<Task>();
@@ -432,7 +480,7 @@ namespace RimworldModManager
                         Console.WriteLine($"Removing exist directory: {modDir}");
                         Directory.Delete(modDir, true);
                     }
-                    ZipFile.ExtractToDirectory(setting.ModTempDirPath+$"\\{mod.Result.title_disk_safe}.zip",
+                    ZipFile.ExtractToDirectory(setting.ModTempDirPath + $"\\{mod.Result.title_disk_safe}.zip",
                         modDir);
                 }
 
@@ -442,7 +490,7 @@ namespace RimworldModManager
                     if (File.Exists(setting.ModTempDirPath + $"\\{mod.Result.title_disk_safe}.zip"))
                     {
                         Console.WriteLine($"Removing {mod.Result.title_disk_safe}.zip");
-                        File.Delete(setting.ModTempDirPath+$"\\{mod.Result.title_disk_safe}.zip");
+                        File.Delete(setting.ModTempDirPath + $"\\{mod.Result.title_disk_safe}.zip");
                     }
                 }
                 Console.WriteLine("Now recreating modConfig.xml...");
@@ -452,6 +500,7 @@ namespace RimworldModManager
             else
             {
                 Console.WriteLine("Installation canceled.");
+
             }
         }
         public static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
@@ -463,6 +512,26 @@ namespace RimworldModManager
             return dtDateTime;
         }
 
+        public static bool CheckInput(bool defaultOpinion)
+        {
+            var key = Console.ReadKey();
+            Console.WriteLine();
+            while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
+            {
+                Console.Write(defaultOpinion ? "Illegal input, try again [Y/n]:" : "Illegal input, try again [y/N]:");
+                key = Console.ReadKey();
+                Console.WriteLine();
+            }
+            switch (key.Key)
+            {
+                case ConsoleKey.Y:
+                    return true;
+                case ConsoleKey.N:
+                    return false;
+                default:
+                    return defaultOpinion;
+            }
+        }
         private static bool InitSetting()
         {
             if (!Directory.Exists("./RimworldModDownloadTemp"))
@@ -473,20 +542,14 @@ namespace RimworldModManager
             if (!File.Exists("./RimworldModManagerSetting.json"))
             {
                 Console.Write("RimworldModManagerSetting.json seems missing, create now? [Y/n]:");
-                var key = Console.ReadKey();
-                Console.WriteLine();
-                while (key.Key != ConsoleKey.Y && key.Key != ConsoleKey.N && key.Key != ConsoleKey.Enter)
+                if (CheckInput(true))
                 {
-                    Console.Write("Illegal input, try again [Y/n]:");
-                    key = Console.ReadKey();
-                    Console.WriteLine();
-                }
-                if (key.Key is ConsoleKey.Y or ConsoleKey.Enter)
-                {
-                    File.WriteAllText("./RimworldModManagerSetting.json",JsonSerializer.Serialize(setting));
+                    File.WriteAllText("./RimworldModManagerSetting.json", JsonSerializer.Serialize(setting));
                     Console.WriteLine("RimworldModManagerSetting.json created. Modify the file before using other command.");
                     return false;
+
                 }
+
                 Console.WriteLine("Nothing changed.");
                 return false;
             }
